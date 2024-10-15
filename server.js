@@ -1,54 +1,63 @@
-require('dotenv').config();
-const admin = require('firebase-admin');
 const express = require('express');
 const bodyParser = require('body-parser');
+const admin = require('firebase-admin');
+require('dotenv').config();
 
-// Initialize Express app
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware to parse JSON requests
 app.use(bodyParser.json());
 
-// Firebase Admin SDK setup using environment variables
+// Initialize Firebase Admin SDK
 admin.initializeApp({
-  credential: admin.credential.cert({
-    type: process.env.FIREBASE_TYPE,
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    client_id: process.env.FIREBASE_CLIENT_ID,
-    auth_uri: process.env.FIREBASE_AUTH_URI,
-    token_uri: process.env.FIREBASE_TOKEN_URI,
-    auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT,
-    client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT,
-  }),
+    credential: admin.credential.cert({
+        type: process.env.FIREBASE_TYPE,
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        privateKeyId: process.env.FIREBASE_PRIVATE_KEY_ID,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Replace \n in the key
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        clientId: process.env.FIREBASE_CLIENT_ID,
+        authUri: process.env.FIREBASE_AUTH_URI,
+        tokenUri: process.env.FIREBASE_TOKEN_URI,
+        authProviderCert: process.env.FIREBASE_AUTH_PROVIDER_CERT,
+        clientCert: process.env.FIREBASE_CLIENT_CERT,
+    }),
 });
 
-// Sample route to send a notification
+// Endpoint to send notifications
 app.post('/send-notification', (req, res) => {
-  const { fcmToken, title, body } = req.body;
+    console.log('Request Body:', req.body); // Log the incoming request body
 
-  const message = {
-    notification: {
-      title: title,
-      body: body,
-    },
-    token: fcmToken, // User's FCM token received from Android app
-  };
+    const { fcmToken, title, body } = req.body;
 
-  // Send notification using Firebase Admin SDK
-  admin.messaging().send(message)
-    .then((response) => {
-      console.log('Notification sent successfully:', response);
-      res.status(200).send('Notification sent successfully!');
-    })
-    .catch((error) => {
-      console.error('Error sending notification:', error);
-      res.status(500).send('Error sending notification');
-    });
+    // Check if the FCM token is present
+    if (!fcmToken) {
+        console.error('FCM token is missing');
+        return res.status(400).send('FCM token is required');
+    }
+
+    const message = {
+        notification: {
+            title: title || 'Default Title',
+            body: body || 'Default message body.',
+        },
+        token: fcmToken,
+    };
+
+    // Send a notification using FCM
+    admin.messaging().send(message)
+        .then((response) => {
+            console.log('Successfully sent message:', response);
+            res.status(200).send('Notification sent successfully');
+        })
+        .catch((error) => {
+            console.error('Error sending message:', error);
+            res.status(500).send('Error sending notification');
+        });
 });
 
 // Start the server
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
